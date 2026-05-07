@@ -1,0 +1,32 @@
+# Security / Environment Variables
+.env
+
+# Virtual Environments
+venv/
+.venv/
+fl_env/
+
+# Python Compilation / Cache
+__pycache__/
+*.pyc
+
+# Machine Learning: Models, Weights, and Data
+data/
+model/
+*.h5
+*.pt
+*.pth
+*.pkl
+
+# Federated Learning Node Directories & Provisioning
+STO/
+provisioned_nodes/
+C[0-9]*/
+
+# Miscellaneous / Scratch Files
+note.txt
+
+
+C[0-9]*/
+C{port}/
+*.pth
