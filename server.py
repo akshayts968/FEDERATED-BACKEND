@@ -1364,17 +1364,17 @@ def run_federated_training():
     print("🏥 Training Completed.")
 
 if __name__ == '__main__':
-    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    
-    # 1. Server's identity
-    context.load_cert_chain(certfile='certs/server.crt', keyfile='certs/server.key')
-    
-    # 2. Tell the server to TRUST clients signed by this specific CA
-    context.load_verify_locations(cafile='certs/server_ca.crt') 
-    
-    # 🚨 THE FIX: Change CERT_REQUIRED to CERT_OPTIONAL
-    # This allows web browsers (without certs) to reach the JWT Login page!
-    context.verify_mode = ssl.CERT_OPTIONAL 
+    port = int(os.getenv('PORT', 5000))
+    use_ssl = os.getenv('USE_SSL', 'false').lower() == 'true'
 
-    print("🛡️ Hybrid Security Active: mTLS for Nodes, JWT for Browsers.")
-    app.run(host='0.0.0.0', port=5000, ssl_context=context)
+    if use_ssl and os.path.exists('certs/server.crt') and os.path.exists('certs/server.key'):
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile='certs/server.crt', keyfile='certs/server.key')
+        if os.path.exists('certs/server_ca.crt'):
+            context.load_verify_locations(cafile='certs/server_ca.crt')
+        context.verify_mode = ssl.CERT_OPTIONAL 
+        print(f"🛡️ Hybrid Security Active: mTLS for Nodes, JWT for Browsers on port {port}")
+        app.run(host='0.0.0.0', port=port, ssl_context=context)
+    else:
+        print(f"🚀 Cloud Production Mode: Listening on port {port} (TLS terminated by Cloud Provider)")
+        app.run(host='0.0.0.0', port=port)
