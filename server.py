@@ -83,7 +83,7 @@ CLIENT_CONFIG = json.loads(client_config_str)
 
 
 REQUIRED_CLIENTS = ["hospital_a", "hospital_b"]
-CLIENTS_PER_ROUND = 2
+CLIENTS_PER_ROUND = int(os.getenv("CLIENTS_PER_ROUND", 1))
 CHUNK_SIZE = 500_000  
 SERVER_TEST_PATH = "./data/Test"  
 SERVER_VALIDATION_PATH = "./data/Test"  #Testing
@@ -1052,7 +1052,7 @@ def check_in():
         print(f"❌ Check-in Crash: {str(e)}", flush=True)
         return jsonify({"message": "Internal Server Error"}), 500
     
-CLIENTS_PER_ROUND = 2
+CLIENTS_PER_ROUND = int(os.getenv("CLIENTS_PER_ROUND", 1))
 
 
 @app.route('/start-training', methods=['POST'])
@@ -1062,8 +1062,8 @@ def start_training_route(token_data):
     params = request.json or {}
     global CLIENTS_PER_ROUND
     
-    # 1. Update the required count from params
-    CLIENTS_PER_ROUND = int(params.get('clients_per_round', 2))
+    # 1. Update the required count from params (defaults to 1 so single client can train)
+    CLIENTS_PER_ROUND = int(params.get('clients_per_round', 1))
     
     # 2. Get the model choice from the request (defaults to 'latest' to preserve old behavior)
     model_choice = params.get('model_choice', 'latest') 
