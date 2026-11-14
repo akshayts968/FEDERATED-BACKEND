@@ -19,14 +19,14 @@ from model import BrainTumorCNN
 
 # 1. LOAD CONFIGURATION
 load_dotenv()
-HOSPITAL_NAME = os.getenv("HOSPITAL_NAME")
-# Configured via environment variable; defaults to localhost for development
-SERVER_URL = os.getenv("SERVER_URL", "https://localhost:5000") 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+HOSPITAL_NAME = os.getenv("HOSPITAL_NAME", "mist")
+SERVER_URL = os.getenv("SERVER_URL", "https://federated-backend-production.up.railway.app")
 
-# Pathing (Unified)
-CERT_PATH = f"certs/{HOSPITAL_NAME}.crt"
-KEY_PATH = f"certs/{HOSPITAL_NAME}.key"
-CA_PATH = "certs/server_ca.crt"
+# Pathing (Absolute paths so it works from any directory)
+CERT_PATH = os.path.join(BASE_DIR, "certs", f"{HOSPITAL_NAME}.crt")
+KEY_PATH = os.path.join(BASE_DIR, "certs", f"{HOSPITAL_NAME}.key")
+CA_PATH = os.path.join(BASE_DIR, "certs", "server_ca.crt")
 
 app = Flask(__name__)
 CORS(app)
