@@ -228,11 +228,12 @@ def train_and_submit_now():
         protected_weights = add_differential_privacy_noise(clean_weights, noise_level=0.01)
 
         print(f"📡 Submitting local update to {SERVER_URL}/submit-update...")
+        fp16_weights = {k: v.half() if v.is_floating_point() else v for k, v in protected_weights.items()}
         buf = io.BytesIO()
-        torch.save(protected_weights, buf)
+        torch.save(fp16_weights, buf, _use_new_zipfile_serialization=False)
         buf.seek(0)
 
-        del model, weights, clean_weights, protected_weights
+        del model, weights, clean_weights, protected_weights, fp16_weights
         torch.cuda.empty_cache()
         gc.collect()
 
