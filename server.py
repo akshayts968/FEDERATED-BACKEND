@@ -1204,9 +1204,11 @@ def training_status():
 @app.route('/get-global-model', methods=['GET'])
 def get_global_model():
     """Allows hospital clients to fetch the latest global model."""
-    # Ensure global_model is instantiated with the current architecture
     global global_model
-    if not hasattr(global_model, 'conv_layers') or len(global_model.conv_layers) < 7:
+    # Ensure global_model matches the current BrainTumorCNN parameter count
+    curr_params = sum(p.numel() for p in global_model.parameters())
+    expected_params = sum(p.numel() for p in BrainTumorCNN().parameters())
+    if curr_params != expected_params:
         global_model = BrainTumorCNN().to(device)
 
     # Use FP16 dictionary to keep memory and transfer footprint minimal (~1.6 MB)
@@ -1228,6 +1230,7 @@ def get_global_model():
 @app.route('/submit-update', methods=['POST'])
 def submit_update():
     """Asynchronous/Any-time update submission endpoint for hospitals."""
+    global global_model
     user = verify_mtls_certificate()
 
     # Support multipart/form-data binary upload OR json fallback
@@ -1264,6 +1267,12 @@ def submit_update():
 
         # Convert half-precision back to float if necessary
         weights = {k: v.float() if v.dtype == torch.float16 else v for k, v in weights.items()}
+
+        # Ensure global_model parameters match the incoming update's architecture
+        curr_params = sum(p.numel() for p in global_model.parameters())
+        incoming_params = sum(v.numel() for v in weights.values())
+        if curr_params != incoming_params:
+            global_model = BrainTumorCNN().to(device)
 
         loss = float(data.get('loss', 0.0))
         acc = float(data.get('accuracy', 0.0))
