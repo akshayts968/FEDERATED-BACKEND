@@ -32,7 +32,16 @@ echo.
 echo 🔄 Pulling global model, training on private MRI scans, and submitting update...
 echo.
 
-python client.py --train-now
+:: Auto-detect virtual environment if present
+if exist "..\venv\Scripts\python.exe" (
+    set "PY_CMD=..\venv\Scripts\python.exe"
+) else if exist "venv\Scripts\python.exe" (
+    set "PY_CMD=venv\Scripts\python.exe"
+) else (
+    set "PY_CMD=python"
+)
+
+%PY_CMD% client.py --train-now
 
 echo.
 echo =======================================================

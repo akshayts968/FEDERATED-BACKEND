@@ -40,7 +40,16 @@ echo [INFO] Training data path: ./data/Train
 echo [INFO] Close this window anytime to stop participating.
 echo.
 
-python client.py
+:: Auto-detect virtual environment if present
+if exist "..\venv\Scripts\python.exe" (
+    set "PY_CMD=..\venv\Scripts\python.exe"
+) else if exist "venv\Scripts\python.exe" (
+    set "PY_CMD=venv\Scripts\python.exe"
+) else (
+    set "PY_CMD=python"
+)
+
+%PY_CMD% client.py
 
 if %errorlevel% neq 0 (
     echo.
