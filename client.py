@@ -28,6 +28,15 @@ CERT_PATH = os.path.join(BASE_DIR, "certs", f"{HOSPITAL_NAME}.crt")
 KEY_PATH = os.path.join(BASE_DIR, "certs", f"{HOSPITAL_NAME}.key")
 CA_PATH = os.path.join(BASE_DIR, "certs", "server_ca.crt")
 
+# Cloud vs Local TLS Verification
+# For public cloud domains (e.g. Railway, Vercel, public HTTPS), use standard root CA (verify=True).
+# For internal self-hosted servers with custom private CA, use CA_PATH if it exists.
+if "railway.app" in SERVER_URL or "localhost" not in SERVER_URL and not SERVER_URL.startswith("http://"):
+    # If CA_PATH does not exist or we are on public cloud domain, use default trusted roots
+    VERIFY_SSL = CA_PATH if (os.path.exists(CA_PATH) and ("localhost" in SERVER_URL or "127.0.0.1" in SERVER_URL)) else True
+else:
+    VERIFY_SSL = CA_PATH if os.path.exists(CA_PATH) else True
+
 app = Flask(__name__)
 CORS(app)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -59,8 +68,8 @@ def start_heartbeat():
             response = requests.post(
                 f"{SERVER_URL}/check-in",
                 json=body,
-                cert=(CERT_PATH, KEY_PATH),
-                verify=CA_PATH,
+                cert=(CERT_PATH, KEY_PATH) if (os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH)) else None,
+                verify=VERIFY_SSL,
                 timeout=5
             )
             
@@ -152,11 +161,12 @@ def train_and_submit_now():
     global client_loader
     print(f"🔄 [ANY-TIME FL] Fetching latest global model from {SERVER_URL}...")
     try:
+        client_cert = (CERT_PATH, KEY_PATH) if (os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH)) else None
         res = requests.get(
             f"{SERVER_URL}/get-global-model",
-            cert=(CERT_PATH, KEY_PATH),
-            verify=CA_PATH,
-            timeout=30
+            cert=client_cert,
+            verify=VERIFY_SSL,
+            timeout=120
         )
         if res.status_code != 200:
             print(f"❌ Failed to get global model: {res.status_code}")
@@ -202,6 +212,7 @@ def train_and_submit_now():
         gc.collect()
 
         print(f"📡 Submitting local update to {SERVER_URL}/submit-update...")
+        client_cert = (CERT_PATH, KEY_PATH) if (os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH)) else None
         submit_res = requests.post(
             f"{SERVER_URL}/submit-update",
             json={
@@ -210,8 +221,8 @@ def train_and_submit_now():
                 "loss": epoch_loss,
                 "accuracy": epoch_acc
             },
-            cert=(CERT_PATH, KEY_PATH),
-            verify=CA_PATH,
+            cert=client_cert,
+            verify=VERIFY_SSL,
             timeout=120
         )
         if submit_res.status_code == 200:
@@ -225,11 +236,12 @@ def verify_node_status():
     """The 'Kill Switch': Checks if the Admin has approved this node."""
     print(f"🔒 Verifying mTLS identity with {SERVER_URL}...")
     try:
+        client_cert = (CERT_PATH, KEY_PATH) if (os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH)) else None
         response = requests.get(
             f"{SERVER_URL}/verify-node/{HOSPITAL_NAME}", 
-            cert=(CERT_PATH, KEY_PATH),
-            verify=CA_PATH,
-            timeout=10
+            cert=client_cert,
+            verify=VERIFY_SSL,
+            timeout=15
         )
         if response.status_code != 200:
             print("❌ NODE REVOKED: This node is not authorized to join the federation.")
