@@ -574,7 +574,7 @@ def send_otp_email(receiver_email, otp):
 
 
 def send_onboarding_email(receiver_email, username, client_crt_path, client_key_path):
-    sender_email = os.getenv("SMTP_EMAIL")
+    sender_email = os.getenv("SMTP_EMAIL", "admin@federated.org")
     sender_password = os.getenv("SMTP_PASSWORD")
     
     msg = MIMEMultipart('mixed')
@@ -937,13 +937,16 @@ def authorize_user(token_data):
                 
                 if key_path and crt_path:
                     print(f"📧 Sending onboarding kit to {user_record['email']}...")
-                    # ✉️ SEND EMAIL (Passing the captured paths here)
-                    send_onboarding_email(
-                        receiver_email=user_record['email'], 
-                        username=target_user, 
-                        client_key_path=key_path, 
-                        client_crt_path=crt_path
-                    )
+                    try:
+                        # ✉️ SEND EMAIL (Passing the captured paths here)
+                        send_onboarding_email(
+                            receiver_email=user_record['email'], 
+                            username=target_user, 
+                            client_key_path=key_path, 
+                            client_crt_path=crt_path
+                        )
+                    except Exception as mail_err:
+                        print(f"⚠️ Could not send email to {user_record['email']}: {mail_err}")
                 else:
                     print("❌ Failed to generate certificates. Email not sent.")
 
@@ -993,6 +996,45 @@ def delete_user(token_data, username):
 
 
 
+
+@app.route('/admin/download-kit/<username>', methods=['GET'])
+@token_required
+def download_kit_endpoint(token_data, username):
+    """Allows downloading the node onboarding kit directly from the admin dashboard."""
+    if token_data['role'] != 'ADMIN':
+        return jsonify({'message': 'Access Denied'}), 403
+
+    # Generate certificates if not already generated
+    key_path, crt_path = generate_hospital_mtls_certs(username)
+    if not key_path or not crt_path:
+        return jsonify({'message': 'Failed to generate certificates'}), 500
+
+    zip_filename = f"{username}_onboarding_kit.zip"
+    files_to_zip = [
+        'client.py', 
+        'model.py', 
+        'requirements.txt', 
+        'start_node.bat',
+        'start_node.sh',
+        'train_now.bat',
+        'train_now.sh',
+        'certs/server.crt', 
+        crt_path, 
+        key_path
+    ]
+
+    try:
+        with zipfile.ZipFile(zip_filename, 'w') as zipf:
+            for file_path in files_to_zip:
+                if os.path.exists(file_path):
+                    filename = os.path.basename(file_path)
+                    arcname = f"certs/{filename}" if filename.endswith(('.crt', '.key')) else filename
+                    zipf.write(file_path, arcname)
+
+        from flask import send_file
+        return send_file(zip_filename, as_attachment=True, download_name=zip_filename)
+    except Exception as e:
+        return jsonify({'message': f'Error creating zip: {e}'}), 500
 
 # --- Update your Global State at the top of server.py ---
 # connected_clients = set()  <-- DELETE THIS
