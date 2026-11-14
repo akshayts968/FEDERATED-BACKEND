@@ -1,0 +1,14 @@
+torch>=2.0.0
+torchvision
+flask>=2.3.0
+flask-cors
+requests
+python-dotenv
+psutil
+mysql-connector-python
+PyJWT
+cryptography
+Pillow
+scikit-learn
+numpy
+pytorch-grad-cam
