@@ -2,10 +2,23 @@ import os
 import sys
 import subprocess
 
+# Auto-detect and use venv python if present
+venv_candidates = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "venv", "Scripts", "python.exe")),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "venv", "Scripts", "python.exe")),
+    r"C:\Users\HP\AKSHAY\Federated\venv\Scripts\python.exe"
+]
+
+python_exe = sys.executable
+for candidate in venv_candidates:
+    if os.path.exists(candidate):
+        python_exe = candidate
+        break
+
 print("=" * 55)
 print("    🧠 FEDERATED LEARNING: START TRAINING NOW")
 print("=" * 55)
-print()
+print(f"🐍 Python Interpreter: {python_exe}\n")
 
 # 1. Check for certs folder
 if not os.path.exists("certs"):
@@ -23,7 +36,7 @@ print("🔄 Connecting to Cloud Aggregator & Initiating Training...")
 print("📡 Pulling global model, training on private MRI scans, and submitting update...\n")
 
 try:
-    ret = subprocess.run([sys.executable, "client.py", "--train-now"])
+    ret = subprocess.run([python_exe, "client.py", "--train-now"])
     print("\n" + "=" * 55)
     if ret.returncode == 0:
         print("  ✅ Training and model update completed successfully!")
