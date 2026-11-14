@@ -244,38 +244,54 @@ def train_and_submit_now():
 
         print(f"📡 Submitting local update to {SERVER_URL}/submit-update...")
         fp16_weights = {k: v.half() if v.is_floating_point() else v for k, v in protected_weights.items()}
-        buf = io.BytesIO()
-        torch.save(fp16_weights, buf, _use_new_zipfile_serialization=False)
-        buf.seek(0)
+        buf_data = io.BytesIO()
+        torch.save(fp16_weights, buf_data, _use_new_zipfile_serialization=False)
+        payload_bytes = buf_data.getvalue()
+        buf_data.close()
 
         del model, weights, clean_weights, protected_weights, fp16_weights
         torch.cuda.empty_cache()
         gc.collect()
 
         client_cert = (CERT_PATH, KEY_PATH) if (os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH)) else None
-        files = {
-            'weights_file': ('weights.pth', buf, 'application/octet-stream')
-        }
         form_data = {
             "hospital": HOSPITAL_NAME,
             "loss": str(epoch_loss),
             "accuracy": str(epoch_acc)
         }
-        submit_res = requests.post(
-            f"{SERVER_URL}/submit-update",
-            data=form_data,
-            files=files,
-            cert=client_cert,
-            verify=VERIFY_SSL,
-            timeout=180
-        )
-        buf.close()
-        del buf
-        if submit_res.status_code == 200:
-            msg = submit_res.json().get('message', 'Update submitted successfully')
-            print(f"✅ Success: {msg}")
-        else:
-            print(f"⚠️ Submission response: {submit_res.status_code} - {submit_res.text}")
+
+        # Resilient submission with automatic retry
+        max_retries = 3
+        submitted = False
+        for attempt in range(1, max_retries + 1):
+            try:
+                files = {
+                    'weights_file': ('weights.pth', io.BytesIO(payload_bytes), 'application/octet-stream')
+                }
+                submit_res = requests.post(
+                    f"{SERVER_URL}/submit-update",
+                    data=form_data,
+                    files=files,
+                    cert=client_cert,
+                    verify=VERIFY_SSL,
+                    timeout=180
+                )
+                if submit_res.status_code == 200:
+                    msg = submit_res.json().get('message', 'Update submitted successfully')
+                    print(f"✅ Success: {msg}")
+                    submitted = True
+                    break
+                else:
+                    print(f"⚠️ Submission attempt {attempt}/{max_retries} returned: {submit_res.status_code} - {submit_res.text}")
+            except Exception as req_err:
+                print(f"⚠️ Submission attempt {attempt}/{max_retries} failed: {req_err}")
+            
+            if attempt < max_retries:
+                print("⏳ Retrying submission in 5 seconds...")
+                time.sleep(5)
+
+        if not submitted:
+            print("❌ Failed to submit model update after multiple attempts.")
     except Exception as e:
         print(f"❌ Train and submit error: {e}")
 
