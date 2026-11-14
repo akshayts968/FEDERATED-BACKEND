@@ -70,7 +70,7 @@ def start_heartbeat():
                 json=body,
                 cert=(CERT_PATH, KEY_PATH) if (os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH)) else None,
                 verify=VERIFY_SSL,
-                timeout=5
+                timeout=15
             )
             
             if response.status_code == 200:
@@ -337,7 +337,8 @@ if __name__ == '__main__':
 
     # 3.5 Any-Time Participation Mode
     if args.train_now:
-        threading.Thread(target=train_and_submit_now, daemon=True).start()
+        train_and_submit_now()
+        print("\n🎉 Training session complete. Keeping node active for heartbeats...")
 
     # 4. Prepare SSL Context for Flask
     context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
