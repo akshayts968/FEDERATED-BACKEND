@@ -11,4 +11,4 @@ cryptography
 Pillow
 scikit-learn
 numpy
-pytorch-grad-cam
+grad-cam
