@@ -206,8 +206,13 @@ def train_and_submit_now():
 
         total_loss = 0.0
         correct, total = 0, 0
+        total_batches = len(client_loader)
+        last_progress_time = time.time()
+        start_time = time.time()
+
         for epoch in range(2):
-            for imgs, labels in client_loader:
+            print(f"\n🚀 [EPOCH {epoch+1}/2] Starting local training across {total_batches} batches...")
+            for b_idx, (imgs, labels) in enumerate(client_loader, 1):
                 imgs, labels = imgs.to(device), labels.to(device)
                 optimizer.zero_grad()
                 outputs = model(imgs)
@@ -219,6 +224,16 @@ def train_and_submit_now():
                 _, preds = torch.max(outputs, 1)
                 correct += (preds == labels).sum().item()
                 total += labels.size(0)
+
+                # Periodic progress output (every 60 seconds or every 50 batches)
+                now = time.time()
+                if now - last_progress_time >= 60 or b_idx == total_batches or b_idx % 50 == 0:
+                    curr_loss = total_loss / max(1, (epoch * total_batches + b_idx))
+                    curr_acc = (correct / max(1, total)) * 100
+                    elapsed = now - start_time
+                    percent = ((epoch * total_batches + b_idx) / (2 * total_batches)) * 100
+                    print(f"⏱️ [PROGRESS] Epoch {epoch+1}/2 | Batch {b_idx}/{total_batches} ({percent:.1f}%) | Loss: {curr_loss:.4f} | Acc: {curr_acc:.2f}% | Elapsed: {int(elapsed)}s")
+                    last_progress_time = now
 
         epoch_loss = total_loss / max(1, len(client_loader) * 2)
         epoch_acc = (correct / max(1, total)) * 100
