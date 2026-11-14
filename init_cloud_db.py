@@ -52,16 +52,21 @@ try:
     );
     """)
 
-    # 3. Default Admin Account (admin / admin_password)
+    # 3. Insert Admin Account (akshay / naina07)
     admin_sql = """
-    INSERT IGNORE INTO users (username, password, email, role, status)
+    INSERT INTO users (username, password, email, role, status)
     VALUES (
-        'admin',
-        'scrypt:32768:8:1$hGzQj1mR1nZ5g9eX$a3407ceeeecda7eeea7ba80bc2350415392cf9c19b0244ff53d39589a5ad304d603a1fc6c98ae032a188be7d7a4ea3c8f33d77eaecdb79860bdae0350711eb63',
-        'admin@flconsortium.org',
+        'akshay',
+        'scrypt:32768:8:1$ZZVjhDp1irLUwHiC$fbe6c5e0ce4bfa82ea670a6cbac5bd179922a6e29a4bd3ae9c657a9ed02ff88b40aef29e0ecc4212f67fad16d5e7efb0caaecd62e978bf5184ef9d5f61061ff3',
+        'akshaysuresh968@gmail.com',
         'ADMIN',
         'APPROVED'
-    );
+    )
+    ON DUPLICATE KEY UPDATE 
+        password = VALUES(password),
+        email = VALUES(email),
+        role = 'ADMIN',
+        status = 'APPROVED';
     """
     cursor.execute(admin_sql)
     conn.commit()
