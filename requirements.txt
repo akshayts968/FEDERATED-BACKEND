@@ -12,3 +12,4 @@ Pillow
 scikit-learn
 numpy
 grad-cam
+gunicorn
