@@ -759,20 +759,26 @@ def verify_register_otp():
 
 @app.route('/login', methods=['POST'])
 def login():
-    print("hai")
-    auth = request.json
-    if not auth or not auth.get('username') or not auth.get('password'):
+    auth = request.json or {}
+    username = (auth.get('username') or '').strip()
+    password = (auth.get('password') or '').strip()
+
+    if not username or not password:
         return jsonify({'message': 'Missing credentials'}), 400
 
-    username = auth.get('username')
-    password = auth.get('password')
     user_info = get_user_from_db(username)
-
     pepper = os.getenv("PASSWORD_PEPPER", "fallback_pepper_just_in_case")
-    
     peppered_password = password + pepper
 
-    if user_info and check_password_hash(user_info['password'], peppered_password):
+    # Check peppered password first, then fallback to unpeppered
+    is_valid = False
+    if user_info and user_info.get('password'):
+        if check_password_hash(user_info['password'], peppered_password):
+            is_valid = True
+        elif check_password_hash(user_info['password'], password):
+            is_valid = True
+
+    if user_info and is_valid:
         # Block login if they haven't verified their email yet
         if user_info.get('status') == 'UNVERIFIED':
             return jsonify({'message': 'Please verify your email before logging in.'}), 403
@@ -784,7 +790,11 @@ def login():
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
         }, app.config['SECRET_KEY'], algorithm="HS256")
         
-        return jsonify({'token': token, 'role': user_info['role'], 'status': user_info.get('status', 'UNAUTHORIZED')})
+        return jsonify({
+            'token': token, 
+            'role': user_info['role'], 
+            'status': user_info.get('status', 'UNAUTHORIZED')
+        }), 200
     
     return jsonify({'message': 'Invalid credentials'}), 403
 
