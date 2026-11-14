@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS audit_ledger (
 INSERT INTO users (username, password, email, role, status)
 VALUES (
     'akshay',
-    'scrypt:32768:8:1$ZZVjhDp1irLUwHiC$fbe6c5e0ce4bfa82ea670a6cbac5bd179922a6e29a4bd3ae9c657a9ed02ff88b40aef29e0ecc4212f67fad16d5e7efb0caaecd62e978bf5184ef9d5f61061ff3',
+    'scrypt:32768:8:1$8WNyWCaH8dyWyviV$405ac9423fa097b6cf47b25c4a9210c438e78fb57c30e23a5d83c48a118ca17e5ad18aefe5648f30cce24ab2248b3d405dfec26b6599f121f20fc17edf980a51',
     'akshaysuresh968@gmail.com',
     'ADMIN',
     'APPROVED'
