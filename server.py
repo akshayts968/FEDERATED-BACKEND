@@ -392,20 +392,31 @@ def validate_update(client_weights):
             
     return (correct / total) * 100 if total > 0 else 0
 
-def encode_weights_chunks(model):
+def encode_weights_chunks(model_or_state):
+    state = model_or_state.state_dict() if hasattr(model_or_state, 'state_dict') else model_or_state
     buffer = io.BytesIO()
-    torch.save(model.state_dict(), buffer, _use_new_zipfile_serialization=False)
-    compressed = gzip.compress(buffer.getvalue())
+    torch.save(state, buffer, _use_new_zipfile_serialization=False)
+    raw = buffer.getvalue()
     buffer.close()
+    compressed = gzip.compress(raw, compresslevel=1)
+    del raw
     b64 = base64.b64encode(compressed).decode('utf-8')
+    del compressed
+    gc.collect()
     return [b64[i:i+CHUNK_SIZE] for i in range(0, len(b64), CHUNK_SIZE)]
 
 def decode_weights_chunks(chunks):
     b64 = ''.join(chunks)
     compressed = base64.b64decode(b64)
-    buffer = io.BytesIO(gzip.decompress(compressed))
+    del b64
+    raw = gzip.decompress(compressed)
+    del compressed
+    buffer = io.BytesIO(raw)
+    del raw
     state_dict = torch.load(buffer, map_location='cpu')
     buffer.close()
+    del buffer
+    gc.collect()
     return state_dict
 
 def aggregate_securely(global_model, client_data_list, ledger, threshold_std=1.5):

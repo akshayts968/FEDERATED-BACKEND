@@ -97,15 +97,28 @@ def add_differential_privacy_noise(weights, noise_level=0.01):
 def decode_weights_chunks(chunks):
     b64 = ''.join(chunks)
     compressed = base64.b64decode(b64)
-    buffer = io.BytesIO(gzip.decompress(compressed))
+    del b64
+    raw = gzip.decompress(compressed)
+    del compressed
+    buffer = io.BytesIO(raw)
+    del raw
     state_dict = torch.load(buffer, map_location=device)
+    buffer.close()
+    del buffer
+    gc.collect()
     return state_dict
 
 def encode_weights_chunks(model_state):
+    state = model_state.state_dict() if hasattr(model_state, 'state_dict') else model_state
     buffer = io.BytesIO()
-    torch.save(model_state, buffer, _use_new_zipfile_serialization=False)
-    compressed = gzip.compress(buffer.getvalue())
+    torch.save(state, buffer, _use_new_zipfile_serialization=False)
+    raw = buffer.getvalue()
+    buffer.close()
+    compressed = gzip.compress(raw, compresslevel=1)
+    del raw
     b64 = base64.b64encode(compressed).decode('utf-8')
+    del compressed
+    gc.collect()
     return [b64[i:i+CHUNK_SIZE] for i in range(0, len(b64), CHUNK_SIZE)]
 
 # --- BACKGROUND HEARTBEAT (The Missing Link) ---
