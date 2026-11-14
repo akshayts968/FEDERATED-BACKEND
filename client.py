@@ -179,14 +179,22 @@ def train_and_submit_now():
             f"{SERVER_URL}/get-global-model",
             cert=client_cert,
             verify=VERIFY_SSL,
-            timeout=120
+            timeout=180,
+            stream=True
         )
         if res.status_code != 200:
             print(f"❌ Failed to get global model: {res.status_code}")
             return
-        
-        data = res.json()
-        weights = decode_weights_chunks(data['weights_chunks'])
+
+        content_type = res.headers.get("content-type", "")
+        if "application/json" in content_type:
+            data = res.json()
+            weights = decode_weights_chunks(data['weights_chunks'])
+        else:
+            buffer = io.BytesIO(res.content)
+            weights = torch.load(buffer, map_location=device)
+            buffer.close()
+            del buffer
 
         print(f"🧠 Training locally on private hospital data (raw images never leave)...")
         model = BrainTumorCNN().to(device)
@@ -218,28 +226,38 @@ def train_and_submit_now():
         print(f"🔐 Adding Differential Privacy noise to trained weights...")
         clean_weights = model.state_dict()
         protected_weights = add_differential_privacy_noise(clean_weights, noise_level=0.01)
-        encoded_chunks = encode_weights_chunks(protected_weights)
+
+        print(f"📡 Submitting local update to {SERVER_URL}/submit-update...")
+        buf = io.BytesIO()
+        torch.save(protected_weights, buf)
+        buf.seek(0)
 
         del model, weights, clean_weights, protected_weights
         torch.cuda.empty_cache()
         gc.collect()
 
-        print(f"📡 Submitting local update to {SERVER_URL}/submit-update...")
         client_cert = (CERT_PATH, KEY_PATH) if (os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH)) else None
+        files = {
+            'weights_file': ('weights.pth', buf, 'application/octet-stream')
+        }
+        form_data = {
+            "hospital": HOSPITAL_NAME,
+            "loss": str(epoch_loss),
+            "accuracy": str(epoch_acc)
+        }
         submit_res = requests.post(
             f"{SERVER_URL}/submit-update",
-            json={
-                "hospital": HOSPITAL_NAME,
-                "weights_chunks": encoded_chunks,
-                "loss": epoch_loss,
-                "accuracy": epoch_acc
-            },
+            data=form_data,
+            files=files,
             cert=client_cert,
             verify=VERIFY_SSL,
-            timeout=120
+            timeout=180
         )
+        buf.close()
+        del buf
         if submit_res.status_code == 200:
-            print(f"✅ Success: {submit_res.json().get('message')}")
+            msg = submit_res.json().get('message', 'Update submitted successfully')
+            print(f"✅ Success: {msg}")
         else:
             print(f"⚠️ Submission response: {submit_res.status_code} - {submit_res.text}")
     except Exception as e:

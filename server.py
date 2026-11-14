@@ -1203,19 +1203,29 @@ def training_status():
 
 @app.route('/get-global-model', methods=['GET'])
 def get_global_model():
-    """Allows hospital clients to fetch the latest global model at any time."""
-    encoded_chunks = encode_weights_chunks(global_model)
-    return jsonify({
-        "current_round": training_state["current_round"],
-        "status": training_state["status"],
-        "weights_chunks": encoded_chunks
-    })
+    """Allows hospital clients to stream the latest global model directly as binary."""
+    from flask import send_file
+    os.makedirs("model", exist_ok=True)
+    temp_path = "model/current_global_model.pth"
+    torch.save(global_model.state_dict(), temp_path)
+    return send_file(
+        temp_path,
+        mimetype="application/octet-stream",
+        as_attachment=True,
+        download_name="global_model.pth"
+    )
 
 @app.route('/submit-update', methods=['POST'])
 def submit_update():
     """Asynchronous/Any-time update submission endpoint for hospitals."""
     user = verify_mtls_certificate()
-    data = request.json or {}
+
+    # Support multipart/form-data binary upload OR json fallback
+    weights_file = request.files.get('weights_file')
+    if weights_file:
+        data = request.form
+    else:
+        data = request.json or {}
 
     if not user:
         user = data.get('hospital')
@@ -1231,11 +1241,17 @@ def submit_update():
     if not user:
         return jsonify({"message": "Unauthorized"}), 401
 
-    if 'weights_chunks' not in data:
-        return jsonify({"error": "No model weights provided"}), 400
-
     try:
-        weights = decode_weights_chunks(data['weights_chunks'])
+        if weights_file:
+            buffer = io.BytesIO(weights_file.read())
+            weights = torch.load(buffer, map_location='cpu')
+            buffer.close()
+            del buffer
+        elif 'weights_chunks' in data:
+            weights = decode_weights_chunks(data['weights_chunks'])
+        else:
+            return jsonify({"error": "No model weights provided"}), 400
+
         loss = float(data.get('loss', 0.0))
         acc = float(data.get('accuracy', 0.0))
 
