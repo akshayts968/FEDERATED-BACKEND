@@ -1203,13 +1203,23 @@ def training_status():
 
 @app.route('/get-global-model', methods=['GET'])
 def get_global_model():
-    """Allows hospital clients to stream the latest global model directly as binary."""
+    """Allows hospital clients to fetch the latest global model."""
+    # Ensure global_model is instantiated with the current architecture
+    global global_model
+    if not hasattr(global_model, 'conv_layers') or len(global_model.conv_layers) < 7:
+        global_model = BrainTumorCNN().to(device)
+
+    # Use FP16 dictionary to keep memory and transfer footprint minimal (~1.6 MB)
+    model_state = global_model.state_dict()
+    fp16_state = {k: v.half() if v.is_floating_point() else v for k, v in model_state.items()}
+    
+    buffer = io.BytesIO()
+    torch.save(fp16_state, buffer, _use_new_zipfile_serialization=False)
+    buffer.seek(0)
+    
     from flask import send_file
-    os.makedirs("model", exist_ok=True)
-    temp_path = "model/current_global_model.pth"
-    torch.save(global_model.state_dict(), temp_path)
     return send_file(
-        temp_path,
+        buffer,
         mimetype="application/octet-stream",
         as_attachment=True,
         download_name="global_model.pth"
@@ -1225,7 +1235,7 @@ def submit_update():
     if weights_file:
         data = request.form
     else:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
 
     if not user:
         user = data.get('hospital')
@@ -1251,6 +1261,9 @@ def submit_update():
             weights = decode_weights_chunks(data['weights_chunks'])
         else:
             return jsonify({"error": "No model weights provided"}), 400
+
+        # Convert half-precision back to float if necessary
+        weights = {k: v.float() if v.dtype == torch.float16 else v for k, v in weights.items()}
 
         loss = float(data.get('loss', 0.0))
         acc = float(data.get('accuracy', 0.0))
