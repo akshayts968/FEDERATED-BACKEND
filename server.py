@@ -626,11 +626,12 @@ def send_onboarding_email(receiver_email, username, client_crt_path, client_key_
         └── 📁 pituitary_tumor/
             </div>
 
-            <h4 style="color: #2c3e50; border-bottom: 2px solid #eee;">🚀 3. Start Node (1-Click)</h4>
-            <p>Simply double-click <strong><code>start_node.bat</code></strong> (Windows) or run <strong><code>./start_node.sh</code></strong> (Linux/Mac). Or run:</p>
-            <div style="background: #f1f2f6; border-left: 5px solid #2ecc71; padding: 10px; font-family: monospace;">
-                python client.py
-            </div>
+            <h4 style="color: #2c3e50; border-bottom: 2px solid #eee;">🚀 3. Start Training (1-Click)</h4>
+            <p>You have two simple one-click files (no terminal needed):</p>
+            <ul>
+                <li><strong><code>train_now.bat</code></strong>: Double-click to train immediately on your local scans and upload model updates to the cloud.</li>
+                <li><strong><code>start_node.bat</code></strong>: Double-click to keep your node online as an active background participant.</li>
+            </ul>
             
             <p style="margin-top: 20px; font-size: 0.9em; color: #7f8c8d;">
                 <em>Note: Your unique security certificates are included in the certs folder. Do not share your <code>.key</code> file with anyone.</em>
@@ -651,6 +652,8 @@ def send_onboarding_email(receiver_email, username, client_crt_path, client_key_
         'requirements.txt', 
         'start_node.bat',
         'start_node.sh',
+        'train_now.bat',
+        'train_now.sh',
         'certs/server.crt', 
         client_crt_path, 
         client_key_path
