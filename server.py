@@ -656,6 +656,7 @@ def send_onboarding_email(receiver_email, username, client_crt_path, client_key_
         'start_node.bat',
         'start_node.sh',
         'certs/server.crt', 
+        'certs/server_ca.crt', 
         client_crt_path, 
         client_key_path
     ]
@@ -1026,6 +1027,7 @@ def client_download_kit_endpoint(token_data):
         'start_node.bat',
         'start_node.sh',
         'certs/server.crt', 
+        'certs/server_ca.crt', 
         crt_path, 
         key_path
     ]
@@ -1066,6 +1068,7 @@ def download_kit_endpoint(token_data, username):
         'start_node.bat',
         'start_node.sh',
         'certs/server.crt', 
+        'certs/server_ca.crt', 
         crt_path, 
         key_path
     ]
