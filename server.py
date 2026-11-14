@@ -519,11 +519,37 @@ def token_required(f):
 
 
 def send_otp_email(receiver_email, otp):
+    resend_api_key = os.getenv("RESEND_API_KEY")
+    if resend_api_key:
+        try:
+            res = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "from": os.getenv("RESEND_FROM", "onboarding@resend.dev"),
+                    "to": [receiver_email],
+                    "subject": "FL System Login Verification",
+                    "html": f"<p>Your verification code for the Federated Learning System is: <strong>{otp}</strong></p><p>This code will expire in 10 minutes.</p>"
+                },
+                timeout=10
+            )
+            if res.status_code in [200, 201]:
+                print(f"📧 Resend OTP successfully sent to {receiver_email}")
+                return True
+            else:
+                print(f"⚠️ Resend API error: {res.status_code} - {res.text}")
+        except Exception as re_err:
+            print(f"⚠️ Resend exception: {re_err}")
+
+    # Fallback to standard SMTP
     sender_email = os.getenv("SMTP_EMAIL")
     sender_password = os.getenv("SMTP_PASSWORD")
     
     if not sender_email or not sender_password:
-        print("⚠️ Email credentials not found in .env!")
+        print("⚠️ Neither Resend nor SMTP credentials found in .env!")
         return False
 
     msg = MIMEText(f"Your verification code for the Federated Learning System is: {otp}\n\nThis code will expire in 10 minutes.")
@@ -539,7 +565,7 @@ def send_otp_email(receiver_email, otp):
         server.quit()
         return True
     except Exception as e:
-        print(f"❌ Failed to send email: {e}")
+        print(f"❌ Failed to send email via SMTP: {e}")
         return False
     
 
@@ -653,7 +679,47 @@ def send_onboarding_email(receiver_email, username, client_crt_path, client_key_
         return False
 
     # --- SENDING ---
+    resend_api_key = os.getenv("RESEND_API_KEY")
+    if resend_api_key:
+        try:
+            with open(zip_filename, "rb") as f:
+                zip_b64 = base64.b64encode(f.read()).decode('utf-8')
+
+            res = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "from": os.getenv("RESEND_FROM", "onboarding@resend.dev"),
+                    "to": [receiver_email],
+                    "subject": f"🚀 Federated Learning: Node Approved ({username})",
+                    "html": html_content,
+                    "attachments": [
+                        {
+                            "filename": zip_filename,
+                            "content": zip_b64
+                        }
+                    ]
+                },
+                timeout=20
+            )
+            if res.status_code in [200, 201]:
+                print(f"📧 Resend onboarding email successfully sent to {receiver_email}")
+                if os.path.exists(zip_filename):
+                    os.remove(zip_filename)
+                return True
+            else:
+                print(f"⚠️ Resend API error: {res.status_code} - {res.text}")
+        except Exception as re_err:
+            print(f"⚠️ Resend exception: {re_err}")
+
+    # Fallback to standard SMTP
     try:
+        if not sender_email or not sender_password:
+            print("⚠️ SMTP credentials missing.")
+            return False
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
         server.login(sender_email, sender_password)
