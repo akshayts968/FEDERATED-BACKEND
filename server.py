@@ -997,6 +997,50 @@ def delete_user(token_data, username):
 
 
 
+@app.route('/client/download-kit', methods=['GET'])
+@token_required
+def client_download_kit_endpoint(token_data):
+    """Allows the logged-in hospital user to download their own onboarding kit."""
+    username = token_data.get('user')
+    if not username:
+        return jsonify({'message': 'Unauthorized'}), 401
+
+    user_info = get_user_from_db(username)
+    if not user_info or user_info.get('status') != 'APPROVED':
+        return jsonify({'message': 'Node must be approved by admin to download kit'}), 403
+
+    # Generate certificates if not already generated
+    key_path, crt_path = generate_hospital_mtls_certs(username)
+    if not key_path or not crt_path:
+        return jsonify({'message': 'Failed to generate certificates'}), 500
+
+    zip_filename = f"{username}_onboarding_kit.zip"
+    files_to_zip = [
+        'client.py', 
+        'model.py', 
+        'requirements.txt', 
+        'start_node.bat',
+        'start_node.sh',
+        'train_now.bat',
+        'train_now.sh',
+        'certs/server.crt', 
+        crt_path, 
+        key_path
+    ]
+
+    try:
+        with zipfile.ZipFile(zip_filename, 'w') as zipf:
+            for file_path in files_to_zip:
+                if os.path.exists(file_path):
+                    filename = os.path.basename(file_path)
+                    arcname = f"certs/{filename}" if filename.endswith(('.crt', '.key')) else filename
+                    zipf.write(file_path, arcname)
+
+        from flask import send_file
+        return send_file(zip_filename, as_attachment=True, download_name=zip_filename)
+    except Exception as e:
+        return jsonify({'message': f'Error creating zip: {e}'}), 500
+
 @app.route('/admin/download-kit/<username>', methods=['GET'])
 @token_required
 def download_kit_endpoint(token_data, username):
