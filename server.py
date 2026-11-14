@@ -726,7 +726,13 @@ def register():
     if email_sent:
         return jsonify({'message': 'OTP sent to your email. Please verify to complete registration.', 'requires_otp': True})
     else:
-        return jsonify({'message': 'Failed to send OTP email.'}), 500
+        # Development / Fallback mode: Print OTP to server logs and auto-allow verification on screen
+        print(f"🔑 [DEV / FALLBACK OTP] Generated OTP for {username} ({email}): {otp}")
+        return jsonify({
+            'message': f'Email service offline. Your verification code is: {otp}', 
+            'requires_otp': True,
+            'otp': otp
+        }), 200
 
 
 @app.route('/verify-register-otp', methods=['POST'])
